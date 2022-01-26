@@ -16,7 +16,7 @@ walk = 0
 url = 'http://192.168.4.1/?State='
 
 # variable camera
-camera = cv2.VideoCapture(1)
+camera = cv2.VideoCapture(0)
 
 # koordinat
 x_bola = 0
@@ -172,15 +172,32 @@ def calculateDistance(x1, y1, x2, y2):
     return dist
 
 
-# variable kecepatan
-requests.get(url+"2")
+grid = 300
+(__, frame) = camera.read()
+height, width = frame.shape[:2]
+h = [x for x in range(0, height+grid) if x % grid == 0]
+w = [x for x in range(0, width+grid) if x % grid == 0]
 
+# variable kecepatan
+# requests.get(url+"2")
 while True:
 
     # bola
     (__, frame) = camera.read()
 
-    frame = imutils.resize(frame, width=800)
+    # frame = imutils.resize(frame, width=1280)
+
+    # no_w = 8  # replace with no. of patches in width
+    # no_h = 5  # replace with no. of patches in height
+    # h, w = frame.shape[:2]
+    # pixels_w = round(w/no_w)
+    # pixels_h = round(h/no_h)
+    # for i in range(0, h, pixels_h):
+    #     cv2.line(frame, (0, i), (w, i), (0, 255, 0), 1)
+
+    # for i in range(0, w, pixels_w):
+    #     cv2.line(frame, (i, 0), (i, h), (0, 255, 0), 1)
+
     blurred_frame = cv2.GaussianBlur(frame, (5, 5), 0)
     hsv = cv2.cvtColor(blurred_frame, cv2.COLOR_BGR2HSV)
 
@@ -190,8 +207,8 @@ while True:
     upper_yellow = np.array([u_h_bola, u_s_bola, u_v_bola])
     mask_bola = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
-    mask_bola = cv2.erode(mask_bola, None, iterations=2)
-    mask_bola = cv2.dilate(mask_bola, None, iterations=2)
+    mask_bola = cv2.erode(mask_bola, None, iterations=1)
+    mask_bola = cv2.dilate(mask_bola, None, iterations=3)
     cnts_bola = cv2.findContours(mask_bola.copy(), cv2.RETR_EXTERNAL,
                                  cv2.CHAIN_APPROX_SIMPLE)[-2]
 
@@ -219,8 +236,8 @@ while True:
     upper_red = np.array([u_h_robot_front, u_s_robot_front, u_v_robot_front])
     mask_robot_front = cv2.inRange(hsv, lower_red, upper_red)
 
-    mask_robot_front = cv2.erode(mask_robot_front, None, iterations=2)
-    mask_robot_front = cv2.dilate(mask_robot_front, None, iterations=2)
+    mask_robot_front = cv2.erode(mask_robot_front, None, iterations=1)
+    mask_robot_front = cv2.dilate(mask_robot_front, None, iterations=3)
     cnts_robot_front = cv2.findContours(mask_robot_front.copy(), cv2.RETR_EXTERNAL,
                                         cv2.CHAIN_APPROX_SIMPLE)[-2]
 
@@ -245,8 +262,8 @@ while True:
     upper_blue = np.array([u_h_robot_back, u_s_robot_back, u_v_robot_back])
     mask_robot_back = cv2.inRange(hsv, lower_blue, upper_blue)
 
-    mask_robot_back = cv2.erode(mask_robot_back, None, iterations=2)
-    mask_robot_back = cv2.dilate(mask_robot_back, None, iterations=2)
+    mask_robot_back = cv2.erode(mask_robot_back, None, iterations=1)
+    mask_robot_back = cv2.dilate(mask_robot_back, None, iterations=3)
     cnts_robot_back = cv2.findContours(mask_robot_back.copy(), cv2.RETR_EXTERNAL,
                                        cv2.CHAIN_APPROX_SIMPLE)[-2]
 
@@ -264,6 +281,24 @@ while True:
                 x_robot_back = cx
                 y_robot_back = cy
 
+    copy_frame = frame.copy()
+    alpha = 0.3  # Transparency factor.
+
+    for i in range(0, np.size(w, 0)-1):
+        for j in range(0, np.size(h, 0)-1):
+            print("1 : "+str((w[i], h[j])))
+            print("2 : "+str((w[i+1], h[j+1])))
+            if(i == 1 and j == 1):
+                cv2.rectangle(copy_frame, (w[i], h[j]),
+                              (w[i+1], h[j+1]), (0, 0, 255), -1)
+            elif(i == 3 and j == 0):
+                cv2.rectangle(copy_frame, (w[i], h[j]),
+                              (w[i+1], h[j+1]), (0, 255, 0), -1)
+            else:
+                cv2.rectangle(frame, (w[i], h[j]),
+                              (w[i+1], h[j+1]), (0, 255, 0), 1)
+
+    frame = cv2.addWeighted(copy_frame, alpha, frame, 1 - alpha, 0)
     cv2.imshow("frame", frame)
     # cv2.imshow("mask_bola", mask_bola)
     # cv2.imshow("mask_robot_front", mask_robot_front)
@@ -272,8 +307,9 @@ while True:
     azimuth_bola = azimuthAngle(x_robot_front, y_robot_front, x_bola, y_bola)
     distance = calculateDistance(x_robot_front, y_robot_front, x_bola, y_bola)
 
-    print("Azimuth : "+str(azimuth_bola))
-    print("Distance : "+str(distance))
+    # print("Azimuth : "+str(azimuth_bola))
+    # print("Distance : "+str(distance))
+    # print("Walk : "+str(walk))
 
     if(walk == 1):
         if(azimuth_bola):
@@ -287,8 +323,8 @@ while True:
                 requests.get(url+"L")
             elif(azimuth_bola > 180 and azimuth_bola < 310):
                 requests.get(url+"R")
-    else:
-        requests.get(url+"S")
+    # else:
+    #     requests.get(url+"S")
 
     key = cv2.waitKey(1) & 0xFF
 
@@ -299,7 +335,7 @@ while True:
         walk = 0
 
     if key == ord("q"):
-        requests.get(url+"S")
+        # requests.get(url+"S")
         break
 
 camera.release()
